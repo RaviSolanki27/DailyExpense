@@ -46,19 +46,18 @@ export function formatDateLabel(dateStr: string): string {
   try {
     const parts = dateStr.split("-").map(Number);
     const d = new Date(parts[0], parts[1] - 1, parts[2]);
-    return d.toLocaleDateString("en-IN", {
-      weekday: "short",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = d.toLocaleDateString("en-US", { month: "short" });
+    const year = d.getFullYear();
+    return `${weekday}, ${day} ${month}, ${year}`;
   } catch {
     return dateStr;
   }
 }
 
 /**
- * Generates formatted WhatsApp text for comprehensive business hisab.
+ * Generates compact, clean formatted WhatsApp text for daily business hisab.
  */
 export function generateWhatsAppDailySummary(
   data: SummaryData,
@@ -79,25 +78,23 @@ export function generateWhatsAppDailySummary(
   const dateFormatted = formatDateLabel(data.date);
   const lines: string[] = [];
 
-  // Header
-  lines.push("📊 *DAILY BUSINESS HISAB REPORT*");
+  // Compact Header
   lines.push(`🗓️ *Date:* ${dateFormatted}`);
-  if (!isSingleBusiness && data.businesses.length > 1) {
-    lines.push(`🏢 *Scope:* All Business Accounts (${data.businesses.length})`);
-  } else if (data.businesses.length === 1) {
-    lines.push(`🏢 *Business:* ${data.businesses[0].business.name}`);
-  }
   lines.push("");
+
+  const multiBiz = !isSingleBusiness && data.businesses.length > 1;
 
   // Loop through businesses
   data.businesses.forEach((b, index) => {
     const curr = b.business.currency || "₹";
 
-    if (!isSingleBusiness && data.businesses.length > 1) {
-      lines.push("━━━━━━━━━━━━━━━━━━━━");
+    // Business Header
+    if (multiBiz) {
       lines.push(`🏢 *${index + 1}. ${b.business.name.toUpperCase()}*`);
-      lines.push("━━━━━━━━━━━━━━━━━━━━");
+    } else {
+      lines.push(`🏢 *${b.business.name.toUpperCase()}*`);
     }
+    lines.push("");
 
     if (includeTransactions) {
       // Income section
@@ -111,7 +108,6 @@ export function generateWhatsAppDailySummary(
         if (b.income.cash > 0) lines.push(`  • Cash (नकद): ${curr}${b.income.cash.toLocaleString()}`);
         if (b.income.other > 0) lines.push(`  • Other: ${curr}${b.income.other.toLocaleString()}`);
       }
-
       lines.push("");
 
       // Expenses section
@@ -125,10 +121,7 @@ export function generateWhatsAppDailySummary(
           const modeTag = item.paymentMode === "ONLINE" ? "Online" : item.paymentMode === "CASH" ? "Cash" : "Other";
           lines.push(`  • ${item.title}: ${curr}${item.amount.toLocaleString()} (${modeTag})`);
         });
-      } else {
-        lines.push("  • No expenses recorded today");
       }
-
       lines.push("");
 
       // Net balance
@@ -141,65 +134,52 @@ export function generateWhatsAppDailySummary(
       lines.push("");
     }
 
-    // Khata Status with full itemized list of Lena and Dena
-    if (includeKhata) {
+    // Khata Status: ONLY if lena or dena entries exist for today!
+    const hasLena = b.khata?.lenaList && b.khata.lenaList.length > 0;
+    const hasDena = b.khata?.denaList && b.khata.denaList.length > 0;
+
+    if (includeKhata && (hasLena || hasDena)) {
       lines.push(
         showHindi
-          ? `🤝 *Khata Status (उधार खाता):*`
-          : `🤝 *Khata Status (Outstanding):*`
+          ? "🤝 *Khata Status (उधार खाता):*"
+          : "🤝 *Khata Status:*"
       );
 
-      // Lena list
-      if (b.khata.lenaList.length > 0) {
+      if (hasLena) {
         lines.push(
           showHindi
-            ? `  🟢 *Lena (You'll Get / लेना बाकी):*`
-            : `  🟢 *Receivable (You'll Get):*`
+            ? "  🟢 *Lena (You'll Get / लेना बाकी):*"
+            : "  🟢 *Receivable (You'll Get):*"
         );
         b.khata.lenaList.forEach((party) => {
           lines.push(`    • ${party.name}: ${curr}${party.amount.toLocaleString()}`);
         });
         lines.push(`    👉 *Total Lena:* ${curr}${b.khata.totalLena.toLocaleString()}`);
-      } else {
-        lines.push(
-          showHindi
-            ? `  🟢 *Lena:* कोई बाकी नहीं (₹0)`
-            : `  🟢 *Receivable:* None (₹0)`
-        );
       }
 
-      // Dena list
-      if (b.khata.denaList.length > 0) {
+      if (hasDena) {
         lines.push(
           showHindi
-            ? `  🔴 *Dena (You Owe / देना बाकी):*`
-            : `  🔴 *Payable (You Owe):*`
+            ? "  🔴 *Dena (You Owe / देना बाकी):*"
+            : "  🔴 *Payable (You Owe):*"
         );
         b.khata.denaList.forEach((party) => {
           lines.push(`    • ${party.name}: ${curr}${party.amount.toLocaleString()}`);
         });
         lines.push(`    👉 *Total Dena:* ${curr}${b.khata.totalDena.toLocaleString()}`);
-      } else {
-        lines.push(
-          showHindi
-            ? `  🔴 *Dena:* कोई बाकी नहीं (₹0)`
-            : `  🔴 *Payable:* None (₹0)`
-        );
       }
-
       lines.push("");
+    }
+
+    // Separator between businesses if not the last one, or before grand totals
+    if (multiBiz && index < data.businesses.length - 1) {
+      lines.push("━━━━━━━━━━━━━━━━━━━━");
     }
   });
 
   // Grand Total Summary if multiple accounts are included
-  if (!isSingleBusiness && data.businesses.length > 1) {
+  if (multiBiz) {
     const curr = "₹";
-    lines.push("━━━━━━━━━━━━━━━━━━━━");
-    lines.push(
-      showHindi
-        ? "✨ *GRAND TOTAL SUMMARY (सभी खाते)*"
-        : "✨ *GRAND TOTAL SUMMARY (All Accounts)*"
-    );
     lines.push("━━━━━━━━━━━━━━━━━━━━");
 
     if (includeTransactions) {
@@ -209,30 +189,28 @@ export function generateWhatsAppDailySummary(
       lines.push(`💰 *Net Balance Today:* ${netSign}${curr}${data.grandTotal.netBalance.toLocaleString()}`);
     }
 
-    if (includeKhata) {
-      lines.push("────────────────────");
-      lines.push(
-        showHindi
-          ? "🤝 *TOTAL OUTSTANDING (कुल उधारी):*"
-          : "🤝 *TOTAL OUTSTANDING:* "
-      );
-      lines.push(
-        showHindi
-          ? `🟢 *Total Lena (सभी से लेना):* ${curr}${data.grandTotal.totalLena.toLocaleString()}`
-          : `🟢 *Total Receivable:* ${curr}${data.grandTotal.totalLena.toLocaleString()}`
-      );
-      lines.push(
-        showHindi
-          ? `🔴 *Total Dena (सभी को देना):* ${curr}${data.grandTotal.totalDena.toLocaleString()}`
-          : `🔴 *Total Payable:* ${curr}${data.grandTotal.totalDena.toLocaleString()}`
-      );
+    const anyLenaToday = data.grandTotal.totalLena > 0;
+    const anyDenaToday = data.grandTotal.totalDena > 0;
+    if (includeKhata && (anyLenaToday || anyDenaToday)) {
+      lines.push("");
+      if (anyLenaToday) {
+        lines.push(
+          showHindi
+            ? `🟢 *Total Lena (सभी से लेना):* ${curr}${data.grandTotal.totalLena.toLocaleString()}`
+            : `🟢 *Total Receivable:* ${curr}${data.grandTotal.totalLena.toLocaleString()}`
+        );
+      }
+      if (anyDenaToday) {
+        lines.push(
+          showHindi
+            ? `🔴 *Total Dena (सभी को देना):* ${curr}${data.grandTotal.totalDena.toLocaleString()}`
+            : `🔴 *Total Payable:* ${curr}${data.grandTotal.totalDena.toLocaleString()}`
+        );
+      }
     }
-    lines.push("━━━━━━━━━━━━━━━━━━━━");
   }
 
-  lines.push("_Generated via Daily Expense App_");
-
-  return lines.join("\n");
+  return lines.join("\n").trim();
 }
 
 /**

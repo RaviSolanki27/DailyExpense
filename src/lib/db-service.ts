@@ -1068,6 +1068,7 @@ export async function getComprehensiveSummary(options: {
   businessId?: string; // "all" or specific business id
   dateStr?: string; // YYYY-MM-DD
 }) {
+  const connected = await checkDbConnection();
   const allBusinesses = await getBusinesses();
   const targetBusinesses =
     !options.businessId || options.businessId === "all"
@@ -1141,38 +1142,94 @@ export async function getComprehensiveSummary(options: {
       }
     }
 
-    // 2. Fetch Khata parties for this business
-    const khataParties = await getKhataParties(biz.id);
-    const lenaList: Array<{ id: string; name: string; phone?: string | null; amount: number }> = [];
-    const denaList: Array<{ id: string; name: string; phone?: string | null; amount: number }> = [];
-    let totalLena = 0;
-    let totalDena = 0;
+    // 2. Fetch Khata entries for this business on this day ONLY
+    let dayKhataEntries: Array<{
+      partyId: string;
+      type: string;
+      amount: number;
+      party: { name: string; phone?: string | null };
+    }> = [];
 
-    for (const p of khataParties) {
-      // p.netBalance > 0 means party owes us (Lena / लेना बाकी)
-      // p.netBalance < 0 means we owe party (Dena / देना बाकी)
-      if (p.netBalance > 0) {
-        lenaList.push({
-          id: p.id,
-          name: p.name,
-          phone: p.phone,
-          amount: p.netBalance,
+    if (connected) {
+      try {
+        const dbEntries = await prisma.khataEntry.findMany({
+          where: {
+            party: { businessId: biz.id },
+            date: {
+              gte: startOfDay,
+              lte: endOfDay,
+            },
+          },
+          include: {
+            party: {
+              select: { name: true, phone: true },
+            },
+          },
         });
-        totalLena += p.netBalance;
-      } else if (p.netBalance < 0) {
-        denaList.push({
-          id: p.id,
-          name: p.name,
-          phone: p.phone,
-          amount: Math.abs(p.netBalance),
-        });
-        totalDena += Math.abs(p.netBalance);
+        dayKhataEntries = dbEntries.map((e) => ({
+          partyId: e.partyId,
+          type: e.type,
+          amount: e.amount,
+          party: { name: e.party.name, phone: e.party.phone },
+        }));
+      } catch (e) {
+        console.warn("DB error querying day khata entries:", e);
       }
     }
 
-    // Sort parties by amount descending
-    lenaList.sort((a, b) => b.amount - a.amount);
-    denaList.sort((a, b) => b.amount - a.amount);
+    if (dayKhataEntries.length === 0 && !connected) {
+      const bizParties = memStore.parties.filter((p) => p.businessId === biz.id);
+      const partyMap = new Map(bizParties.map((p) => [p.id, p]));
+      dayKhataEntries = memStore.khataEntries
+        .filter((e) => {
+          if (!partyMap.has(e.partyId)) return false;
+          const d = new Date(e.date);
+          return d >= startOfDay && d <= endOfDay;
+        })
+        .map((e) => ({
+          partyId: e.partyId,
+          type: e.type,
+          amount: e.amount,
+          party: {
+            name: partyMap.get(e.partyId)!.name,
+            phone: partyMap.get(e.partyId)!.phone,
+          },
+        }));
+    }
+
+    const partyGaveMap: Record<string, { id: string; name: string; phone?: string | null; amount: number }> = {};
+    const partyGotMap: Record<string, { id: string; name: string; phone?: string | null; amount: number }> = {};
+
+    for (const entry of dayKhataEntries) {
+      if (entry.type === "GAVE") {
+        // You gave / Lena (लेना बाकी)
+        if (!partyGaveMap[entry.partyId]) {
+          partyGaveMap[entry.partyId] = {
+            id: entry.partyId,
+            name: entry.party.name,
+            phone: entry.party.phone,
+            amount: 0,
+          };
+        }
+        partyGaveMap[entry.partyId].amount += entry.amount;
+      } else if (entry.type === "GOT") {
+        // You got / Dena (देना बाकी)
+        if (!partyGotMap[entry.partyId]) {
+          partyGotMap[entry.partyId] = {
+            id: entry.partyId,
+            name: entry.party.name,
+            phone: entry.party.phone,
+            amount: 0,
+          };
+        }
+        partyGotMap[entry.partyId].amount += entry.amount;
+      }
+    }
+
+    const lenaList = Object.values(partyGaveMap).sort((a, b) => b.amount - a.amount);
+    const denaList = Object.values(partyGotMap).sort((a, b) => b.amount - a.amount);
+    const totalLena = lenaList.reduce((s, p) => s + p.amount, 0);
+    const totalDena = denaList.reduce((s, p) => s + p.amount, 0);
 
     grandTotalIncome += totalIncome;
     grandTotalExpense += totalExpense;
