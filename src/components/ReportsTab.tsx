@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { BusinessProfile, BusinessStats, PaymentMode, Transaction } from "@/types";
 import { getLabels } from "@/lib/translations";
+import { ReportsSkeleton } from "./Skeletons";
 import {
   Download,
   Calendar,
@@ -116,6 +117,10 @@ export default function ReportsTab({ business, showHindi }: ReportsTabProps) {
     .filter((t) => t.type === "EXPENSE")
     .reduce((sum, t) => sum + t.amount, 0);
   const netProfit = currentTotalIncome - currentTotalExpense;
+
+  if (loading && transactions.length === 0) {
+    return <ReportsSkeleton />;
+  }
 
   return (
     <div className="max-w-md mx-auto px-4 pb-24 pt-3">

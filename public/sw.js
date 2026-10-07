@@ -1,14 +1,6 @@
-const CACHE_NAME = "dailyexpense-cache-v1";
-const urlsToCache = ["/", "/manifest.json", "/icons/icon-192x192.png"];
+const CACHE_NAME = "dailyexpense-v3";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(urlsToCache).catch(() => {
-        // Silently continue if some items are not yet ready
-      });
-    })
-  );
   self.skipWaiting();
 });
 
@@ -18,6 +10,7 @@ self.addEventListener("activate", (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
+            console.log("[SW] Deleting old cache:", cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -28,33 +21,48 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  // Only handle GET requests
   if (event.request.method !== "GET") return;
 
-  // Let API requests go directly to network
-  if (event.request.url.includes("/api/")) return;
+  const url = new URL(event.request.url);
 
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return (
-        response ||
-        fetch(event.request).then((fetchResponse) => {
-          // Clone response to cache static assets
-          if (
-            fetchResponse &&
-            fetchResponse.status === 200 &&
-            (event.request.url.includes("/_next/static/") ||
-              event.request.url.includes("/icons/"))
-          ) {
-            const responseToCache = fetchResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+  // 1. API requests: always go directly to network
+  if (url.pathname.startsWith("/api/")) {
+    return;
+  }
+
+  // 2. HTML navigation requests (page loads): Network-First
+  // This prevents mobile Android PWAs from being stuck on stale cached HTML bundles!
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
-          return fetchResponse;
+          return response;
         })
-      );
+        .catch(() => {
+          return caches.match(event.request).then((cached) => cached || caches.match("/"));
+        })
+    );
+    return;
+  }
+
+  // 3. Static assets (_next/static, icons, fonts): Stale-While-Revalidate
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(() => cachedResponse);
+
+      return cachedResponse || fetchPromise;
     })
   );
 });
-

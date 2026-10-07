@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { BusinessProfile, KhataParty, PaymentMode } from "@/types";
 import { getLabels } from "@/lib/translations";
+import { KhataSkeleton } from "./Skeletons";
 import {
   BookOpen,
   UserPlus,
@@ -175,6 +176,10 @@ export default function KhataTab({ business, showHindi }: KhataTabProps) {
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
     window.open(url, "_blank");
   };
+
+  if (loading && parties.length === 0) {
+    return <KhataSkeleton />;
+  }
 
   return (
     <div className="max-w-md mx-auto px-4 pb-24 pt-3">
