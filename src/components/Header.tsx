@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { BusinessProfile } from "@/types";
+import { getLabels } from "@/lib/translations";
 import {
   ChevronDown,
-  Building2,
   Moon,
   Sun,
   Lock,
@@ -12,7 +12,6 @@ import {
   Check,
   Database,
   Layers,
-  Sparkles,
 } from "lucide-react";
 
 interface HeaderProps {
@@ -24,6 +23,7 @@ interface HeaderProps {
   darkMode: boolean;
   onToggleTheme: () => void;
   dbStatus: "connected" | "fallback_mode";
+  showHindi: boolean;
 }
 
 const colorBadgeStyles: Record<string, string> = {
@@ -44,15 +44,17 @@ export default function Header({
   darkMode,
   onToggleTheme,
   dbStatus,
+  showHindi,
 }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const labels = getLabels(showHindi);
 
   const activeColorClass = currentBusiness?.color
     ? colorBadgeStyles[currentBusiness.color] || colorBadgeStyles.emerald
     : colorBadgeStyles.emerald;
 
   return (
-    <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-white/80 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800/80 safe-top">
+    <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-white/90 dark:bg-slate-950/90 border-b border-slate-200 dark:border-slate-800/80 safe-top">
       <div className="max-w-md mx-auto px-4 h-15 flex items-center justify-between">
         {/* Business Switcher Button */}
         <div className="relative">
@@ -67,7 +69,7 @@ export default function Header({
             </div>
             <div className="flex flex-col">
               <span className="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400 tracking-wider">
-                Business
+                {labels.business}
               </span>
               <div className="flex items-center space-x-1">
                 <span className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[130px]">
@@ -90,7 +92,7 @@ export default function Header({
                   <div className="flex items-center space-x-2">
                     <Layers className="w-4 h-4 text-emerald-500" />
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
-                      Switch Profile
+                      {labels.switchProfile}
                     </span>
                   </div>
                   <span className="text-[10px] text-slate-400">

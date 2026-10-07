@@ -2,34 +2,38 @@
 
 import React from "react";
 import { PlusCircle, BarChart3, BookOpen, Settings } from "lucide-react";
+import { getLabels } from "@/lib/translations";
 
 export type TabType = "add" | "reports" | "khata" | "settings";
 
 interface BottomNavProps {
   activeTab: TabType;
   onChangeTab: (tab: TabType) => void;
+  showHindi: boolean;
 }
 
-export default function BottomNav({ activeTab, onChangeTab }: BottomNavProps) {
+export default function BottomNav({ activeTab, onChangeTab, showHindi }: BottomNavProps) {
+  const labels = getLabels(showHindi);
+
   const tabs = [
     {
       id: "add" as TabType,
-      label: "Quick Add",
+      label: labels.quickAdd,
       icon: PlusCircle,
     },
     {
       id: "reports" as TabType,
-      label: "Reports",
+      label: labels.reports,
       icon: BarChart3,
     },
     {
       id: "khata" as TabType,
-      label: "Khata Book",
+      label: labels.khataBook,
       icon: BookOpen,
     },
     {
       id: "settings" as TabType,
-      label: "Settings",
+      label: labels.settings,
       icon: Settings,
     },
   ];

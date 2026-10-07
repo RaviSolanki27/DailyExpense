@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { BusinessProfile, FrequentTag, PaymentMode, Transaction, TransactionType } from "@/types";
+import { getLabels } from "@/lib/translations";
 import CalculatorPad from "./CalculatorPad";
 import confetti from "canvas-confetti";
 import {
@@ -10,13 +11,10 @@ import {
   Smartphone,
   Banknote,
   CreditCard,
-  Calendar,
   CheckCircle2,
   Plus,
   Trash2,
   Clock,
-  ChevronRight,
-  Sparkles,
 } from "lucide-react";
 
 interface QuickAddTabProps {
@@ -24,6 +22,7 @@ interface QuickAddTabProps {
   frequentTags: FrequentTag[];
   onRefreshData: () => void;
   onAddFrequentTag: (label: string) => void;
+  showHindi: boolean;
 }
 
 export default function QuickAddTab({
@@ -31,7 +30,9 @@ export default function QuickAddTab({
   frequentTags,
   onRefreshData,
   onAddFrequentTag,
+  showHindi,
 }: QuickAddTabProps) {
+  const labels = getLabels(showHindi);
   const [type, setType] = useState<TransactionType>("EXPENSE");
   const [amount, setAmount] = useState<number>(0);
   const [title, setTitle] = useState<string>("");
@@ -160,7 +161,7 @@ export default function QuickAddTab({
     <div className="max-w-md mx-auto px-4 pb-24 pt-3">
       {/* Success Banner */}
       {successBanner && (
-        <div className="mb-3 p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center space-x-2 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="mb-3 p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center space-x-2 animate-in fade-in slide-in-from-top-2 duration-200">
           <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
           <span>{successBanner}</span>
         </div>
@@ -181,7 +182,7 @@ export default function QuickAddTab({
           }`}
         >
           <TrendingUp className="w-4 h-4" />
-          <span>+ Income (Aamadni)</span>
+          <span>{labels.incomeSub}</span>
         </button>
 
         <button
@@ -197,7 +198,7 @@ export default function QuickAddTab({
           }`}
         >
           <TrendingDown className="w-4 h-4" />
-          <span>- Expense (Kharcha)</span>
+          <span>{labels.expenseSub}</span>
         </button>
       </div>
 
@@ -205,7 +206,7 @@ export default function QuickAddTab({
         {/* Payment Mode Selector: Online / UPI vs Cash vs Other */}
         <div>
           <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-            Payment Mode (B भुगतान का प्रकार)
+            {labels.paymentBreakdown}
           </label>
           <div className="grid grid-cols-3 gap-2">
             <button
@@ -218,7 +219,7 @@ export default function QuickAddTab({
               }`}
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>Online / UPI</span>
+              <span>{labels.online}</span>
             </button>
 
             <button
@@ -231,7 +232,7 @@ export default function QuickAddTab({
               }`}
             >
               <Banknote className="w-3.5 h-3.5" />
-              <span>Cash (रोकड़)</span>
+              <span>{labels.cash}</span>
             </button>
 
             <button
@@ -244,7 +245,7 @@ export default function QuickAddTab({
               }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
-              <span>Other / Cheque</span>
+              <span>{labels.other}</span>
             </button>
           </div>
         </div>
@@ -254,16 +255,16 @@ export default function QuickAddTab({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center space-x-1">
-                <span>Frequently Added Expenses</span>
-                <span className="text-[10px] text-slate-400 font-normal">(Tap to auto-fill)</span>
+                <span>{labels.frequentExpenses}</span>
+                <span className="text-[10px] text-slate-400 font-normal">{labels.tapToAutoFill}</span>
               </span>
               <button
                 type="button"
                 onClick={() => setShowNewTagInput(!showNewTagInput)}
-                className="text-[11px] text-emerald-500 dark:text-emerald-400 hover:underline flex items-center space-x-0.5 font-medium"
+                className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center space-x-0.5 font-medium"
               >
                 <Plus className="w-3 h-3" />
-                <span>Add Button</span>
+                <span>Add Chip</span>
               </button>
             </div>
 
@@ -312,7 +313,7 @@ export default function QuickAddTab({
           /* Income Quick Suggestions */
           <div>
             <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-              Income Category / Source (Tap to auto-fill)
+              Income Category / Source {labels.tapToAutoFill}
             </span>
             <div className="flex items-center space-x-2 overflow-x-auto pb-1 no-scrollbar">
               {incomeSuggestions.map((item) => (
@@ -336,7 +337,7 @@ export default function QuickAddTab({
         {/* Title / Description Input */}
         <div>
           <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-            {type === "INCOME" ? "Income Description / From" : "Expense Details (खाते का नाम)"}
+            {type === "INCOME" ? `Income Source / ${labels.description}` : labels.description}
           </label>
           <input
             type="text"
@@ -355,7 +356,7 @@ export default function QuickAddTab({
         {/* Inbuilt Calculator Pad for Amount */}
         <div>
           <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-            Amount with Inbuilt Calculator (रुपये)
+            {labels.amount} ({business.currency})
           </label>
           <CalculatorPad
             currency={business.currency}
@@ -368,7 +369,7 @@ export default function QuickAddTab({
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-              Date (तारीख)
+              {labels.date}
             </label>
             <div className="relative">
               <input
@@ -382,7 +383,7 @@ export default function QuickAddTab({
 
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-              Bill / Note (वैकल्पिक)
+              {labels.notes}
             </label>
             <input
               type="text"
@@ -408,7 +409,7 @@ export default function QuickAddTab({
           <span>
             {loading
               ? "Saving..."
-              : `Save ${type === "INCOME" ? "Income" : "Expense"} (${business.currency} ${amount.toLocaleString()})`}
+              : `${type === "INCOME" ? labels.saveIncome : labels.saveExpense} (${business.currency} ${amount.toLocaleString()})`}
           </span>
         </button>
       </form>
@@ -418,7 +419,7 @@ export default function QuickAddTab({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             <Clock className="w-3.5 h-3.5" />
-            <span>Recent Entries ({business.name})</span>
+            <span>{labels.recentEntries} ({business.name})</span>
           </div>
           <span className="text-[10px] text-slate-400">Last 5</span>
         </div>

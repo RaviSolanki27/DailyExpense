@@ -1,29 +1,26 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { BusinessProfile, KhataParty, KhataEntry, PaymentMode } from "@/types";
+import { BusinessProfile, KhataParty, PaymentMode } from "@/types";
+import { getLabels } from "@/lib/translations";
 import {
   BookOpen,
   UserPlus,
   Search,
   ArrowUpRight,
   ArrowDownLeft,
-  Phone,
   MessageCircle,
-  Plus,
   Trash2,
   X,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Send,
 } from "lucide-react";
 
 interface KhataTabProps {
   business: BusinessProfile;
+  showHindi: boolean;
 }
 
-export default function KhataTab({ business }: KhataTabProps) {
+export default function KhataTab({ business, showHindi }: KhataTabProps) {
+  const labels = getLabels(showHindi);
   const [parties, setParties] = useState<KhataParty[]>([]);
   const [selectedParty, setSelectedParty] = useState<KhataParty | null>(null);
   const [search, setSearch] = useState<string>("");
@@ -92,7 +89,7 @@ export default function KhataTab({ business }: KhataTabProps) {
         fetchParties();
         setSelectedParty(created);
       }
-    } catch (e) {
+    } catch {
       alert("Failed to create customer/party");
     }
   };
@@ -119,13 +116,12 @@ export default function KhataTab({ business }: KhataTabProps) {
         setEntryAmount("");
         setEntryDesc("");
         setShowAddEntryModal(false);
-        // Refresh party details
         const partyRes = await fetch(`/api/khata/parties/${selectedParty.id}`);
         const freshParty = await partyRes.json();
         setSelectedParty(freshParty);
         fetchParties();
       }
-    } catch (e) {
+    } catch {
       alert("Failed to record khata entry");
     }
   };
@@ -156,11 +152,9 @@ export default function KhataTab({ business }: KhataTabProps) {
     }
   };
 
-  // Summaries
   const totalReceivable = parties.reduce((sum, p) => sum + (p.netBalance > 0 ? p.netBalance : 0), 0);
   const totalPayable = parties.reduce((sum, p) => sum + (p.netBalance < 0 ? Math.abs(p.netBalance) : 0), 0);
 
-  // Filtered parties
   const filteredParties = parties.filter((p) => {
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -186,22 +180,22 @@ export default function KhataTab({ business }: KhataTabProps) {
     <div className="max-w-md mx-auto px-4 pb-24 pt-3">
       {/* Khata Summary Cards */}
       <div className="grid grid-cols-2 gap-2.5 mb-4">
-        {/* You Will Get (Maine Diye / Udhar diya) */}
+        {/* You Will Get */}
         <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 flex flex-col justify-between">
           <div className="flex items-center space-x-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
             <ArrowUpRight className="w-4 h-4" />
-            <span>You Will Get (लेना है)</span>
+            <span>{labels.youWillGet}</span>
           </div>
           <div className="mt-2 font-mono font-extrabold text-base text-emerald-600 dark:text-emerald-400 truncate">
             {business.currency} {totalReceivable.toLocaleString()}
           </div>
         </div>
 
-        {/* You Will Give (Maine Liye / Dena hai) */}
+        {/* You Will Give */}
         <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex flex-col justify-between">
           <div className="flex items-center space-x-1.5 text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
             <ArrowDownLeft className="w-4 h-4" />
-            <span>You Will Give (देना है)</span>
+            <span>{labels.youWillGive}</span>
           </div>
           <div className="mt-2 font-mono font-extrabold text-base text-rose-600 dark:text-rose-400 truncate">
             {business.currency} {totalPayable.toLocaleString()}
@@ -227,7 +221,7 @@ export default function KhataTab({ business }: KhataTabProps) {
           className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm active-press flex-shrink-0"
         >
           <UserPlus className="w-3.5 h-3.5" />
-          <span>+ Add Party</span>
+          <span>{labels.addParty}</span>
         </button>
       </div>
 
@@ -251,7 +245,7 @@ export default function KhataTab({ business }: KhataTabProps) {
               : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
           }`}
         >
-          You Will Get
+          {labels.youWillGet}
         </button>
         <button
           onClick={() => setFilterType("PAYABLE")}
@@ -261,7 +255,7 @@ export default function KhataTab({ business }: KhataTabProps) {
               : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
           }`}
         >
-          You Will Give
+          {labels.youWillGive}
         </button>
       </div>
 
@@ -270,7 +264,6 @@ export default function KhataTab({ business }: KhataTabProps) {
         {filteredParties.map((party) => {
           const isReceivable = party.netBalance > 0;
           const isPayable = party.netBalance < 0;
-          const isSettled = party.netBalance === 0;
 
           return (
             <div
@@ -312,7 +305,7 @@ export default function KhataTab({ business }: KhataTabProps) {
                   {business.currency} {Math.abs(party.netBalance).toLocaleString()}
                 </div>
                 <div className="text-[10px] font-semibold text-slate-400">
-                  {isReceivable ? "You Will Get" : isPayable ? "You Will Give" : "Settled"}
+                  {isReceivable ? labels.youWillGet : isPayable ? labels.youWillGive : labels.settled}
                 </div>
               </div>
             </div>
@@ -326,7 +319,7 @@ export default function KhataTab({ business }: KhataTabProps) {
               No contacts found
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Tap &quot;+ Add Party&quot; to maintain borrow/lend khata
+              Tap &quot;{labels.addParty}&quot; to maintain borrow/lend khata
             </p>
           </div>
         )}
@@ -380,7 +373,7 @@ export default function KhataTab({ business }: KhataTabProps) {
             <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  Net Balance
+                  {labels.netBalance}
                 </span>
                 <div
                   className={`text-lg font-mono font-extrabold ${
@@ -396,10 +389,10 @@ export default function KhataTab({ business }: KhataTabProps) {
               </div>
               <div className="text-right text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                 {selectedParty.netBalance > 0
-                  ? "You will get (लेना है)"
+                  ? labels.youWillGet
                   : selectedParty.netBalance < 0
-                  ? "You will give (देना है)"
-                  : "All Settled (बराबर)"}
+                  ? labels.youWillGive
+                  : labels.settled}
               </div>
             </div>
 
@@ -410,7 +403,7 @@ export default function KhataTab({ business }: KhataTabProps) {
               </span>
 
               {selectedParty.entries?.map((entry) => {
-                const isGave = entry.type === "GAVE"; // You gave
+                const isGave = entry.type === "GAVE";
                 return (
                   <div
                     key={entry.id}
@@ -464,7 +457,7 @@ export default function KhataTab({ business }: KhataTabProps) {
               )}
             </div>
 
-            {/* Bottom 2 Big Buttons: You Gave / You Got */}
+            {/* Bottom 2 Big Buttons */}
             <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 grid grid-cols-2 gap-3 safe-bottom">
               <button
                 onClick={() => {
@@ -474,7 +467,7 @@ export default function KhataTab({ business }: KhataTabProps) {
                 className="py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center justify-center space-x-2 shadow-md shadow-rose-600/20 active-press"
               >
                 <ArrowUpRight className="w-4 h-4" />
-                <span>- Maine Diye (You Gave)</span>
+                <span>{labels.maineDiye}</span>
               </button>
 
               <button
@@ -485,7 +478,7 @@ export default function KhataTab({ business }: KhataTabProps) {
                 className="py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center space-x-2 shadow-md shadow-emerald-600/20 active-press"
               >
                 <ArrowDownLeft className="w-4 h-4" />
-                <span>+ Maine Liye (You Got)</span>
+                <span>{labels.maineLiye}</span>
               </button>
             </div>
           </div>
@@ -575,7 +568,7 @@ export default function KhataTab({ business }: KhataTabProps) {
           <div className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                {entryType === "GAVE" ? "Maine Diye (You Gave)" : "Maine Liye (You Got)"}
+                {entryType === "GAVE" ? labels.maineDiye : labels.maineLiye}
               </h3>
               <button
                 onClick={() => setShowAddEntryModal(false)}

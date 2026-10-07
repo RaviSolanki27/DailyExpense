@@ -11,3 +11,4 @@ export async function GET() {
       : "Running in local storage fallback mode. Add your NeonDB URL to DATABASE_URL in .env to connect.",
   });
 }
+

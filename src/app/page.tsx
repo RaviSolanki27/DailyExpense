@@ -25,26 +25,44 @@ export default function Home() {
   const [showBusinessModal, setShowBusinessModal] = useState<boolean>(false);
   const [businessToEdit, setBusinessToEdit] = useState<BusinessProfile | null>(null);
 
-  // Settings & Theme
-  const [darkMode, setDarkMode] = useState<boolean>(true);
+  // Settings: Theme & Hindi Translation
+  const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [showHindi, setShowHindi] = useState<boolean>(true);
   const [dbStatus, setDbStatus] = useState<"connected" | "fallback_mode">("connected");
   const [loading, setLoading] = useState<boolean>(true);
 
-  // 1. Initial lock check and theme setup
+  // 1. Initial lock check, theme, and Hindi setup
   useEffect(() => {
     // Check lock
     const unlocked = sessionStorage.getItem("daily_expense_unlocked") === "true";
     setIsUnlocked(unlocked);
     setCheckedLock(true);
 
-    // Theme setup
+    // Theme setup: check localStorage first
     const savedTheme = localStorage.getItem("daily_expense_theme");
-    const isDark = savedTheme ? savedTheme === "dark" : true;
+    let isDark = false;
+    if (savedTheme === "dark") {
+      isDark = true;
+    } else if (savedTheme === "light") {
+      isDark = false;
+    } else {
+      // Default to false (Light Mode) if not set, or check media query
+      isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+
     setDarkMode(isDark);
     if (isDark) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
+    }
+
+    // Hindi translation setup: default true
+    const savedHindi = localStorage.getItem("daily_expense_show_hindi");
+    if (savedHindi !== null) {
+      setShowHindi(savedHindi === "true");
+    } else {
+      setShowHindi(true);
     }
 
     // Check DB status
@@ -174,7 +192,7 @@ export default function Home() {
     }
   };
 
-  // Theme toggle
+  // Theme toggle with explicit DOM and state synchronization
   const toggleTheme = () => {
     const nextDark = !darkMode;
     setDarkMode(nextDark);
@@ -185,6 +203,13 @@ export default function Home() {
       document.documentElement.classList.remove("dark");
       localStorage.setItem("daily_expense_theme", "light");
     }
+  };
+
+  // Hindi toggle
+  const toggleHindi = () => {
+    const nextHindi = !showHindi;
+    setShowHindi(nextHindi);
+    localStorage.setItem("daily_expense_show_hindi", String(nextHindi));
   };
 
   // Lock App
@@ -214,7 +239,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-emerald-500/20">
+    <main className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-emerald-500/20 font-sans">
       {/* Top Header */}
       <Header
         businesses={businesses}
@@ -228,6 +253,7 @@ export default function Home() {
         darkMode={darkMode}
         onToggleTheme={toggleTheme}
         dbStatus={dbStatus}
+        showHindi={showHindi}
       />
 
       {/* Main Content View by Active Tab */}
@@ -240,12 +266,17 @@ export default function Home() {
                 frequentTags={frequentTags}
                 onRefreshData={() => {}}
                 onAddFrequentTag={handleAddFrequentTag}
+                showHindi={showHindi}
               />
             )}
 
-            {activeTab === "reports" && <ReportsTab business={currentBusiness} />}
+            {activeTab === "reports" && (
+              <ReportsTab business={currentBusiness} showHindi={showHindi} />
+            )}
 
-            {activeTab === "khata" && <KhataTab business={currentBusiness} />}
+            {activeTab === "khata" && (
+              <KhataTab business={currentBusiness} showHindi={showHindi} />
+            )}
 
             {activeTab === "settings" && (
               <SettingsTab
@@ -264,6 +295,8 @@ export default function Home() {
                 onToggleTheme={toggleTheme}
                 dbStatus={dbStatus}
                 onLockApp={handleLockApp}
+                showHindi={showHindi}
+                onToggleHindi={toggleHindi}
               />
             )}
           </>
@@ -287,7 +320,7 @@ export default function Home() {
       </div>
 
       {/* Bottom Navigation */}
-      <BottomNav activeTab={activeTab} onChangeTab={setActiveTab} />
+      <BottomNav activeTab={activeTab} onChangeTab={setActiveTab} showHindi={showHindi} />
 
       {/* Business Profile Modal */}
       {showBusinessModal && (

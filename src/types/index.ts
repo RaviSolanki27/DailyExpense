@@ -75,3 +75,4 @@ export interface BusinessStats {
   dailyTrend: { date: string; income: number; expense: number }[];
   transactionCount: number;
 }
+

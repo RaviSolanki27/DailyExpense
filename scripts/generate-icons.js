@@ -88,3 +88,4 @@ if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 fs.writeFileSync(path.join(dir, 'icon-192x192.png'), createPNG(192, 192));
 fs.writeFileSync(path.join(dir, 'icon-512x512.png'), createPNG(512, 512));
 console.log('✅ Generated 192x192 and 512x512 icons successfully!');
+

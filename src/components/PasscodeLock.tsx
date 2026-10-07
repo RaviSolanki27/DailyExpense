@@ -181,3 +181,4 @@ export default function PasscodeLock({ onUnlock }: PasscodeLockProps) {
     </div>
   );
 }
+

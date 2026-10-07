@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { BusinessProfile, BusinessStats, PaymentMode, Transaction, TransactionType } from "@/types";
+import { BusinessProfile, BusinessStats, PaymentMode, Transaction } from "@/types";
+import { getLabels } from "@/lib/translations";
 import {
-  Filter,
   Download,
   Calendar,
   Search,
@@ -11,18 +11,16 @@ import {
   TrendingDown,
   Smartphone,
   Banknote,
-  CreditCard,
   Trash2,
-  DollarSign,
-  BarChart3,
-  PieChart,
 } from "lucide-react";
 
 interface ReportsTabProps {
   business: BusinessProfile;
+  showHindi: boolean;
 }
 
-export default function ReportsTab({ business }: ReportsTabProps) {
+export default function ReportsTab({ business, showHindi }: ReportsTabProps) {
+  const labels = getLabels(showHindi);
   const [period, setPeriod] = useState<"today" | "week" | "month" | "year" | "all">("month");
   const [typeFilter, setTypeFilter] = useState<"ALL" | "INCOME" | "EXPENSE">("ALL");
   const [modeFilter, setModeFilter] = useState<"ALL" | PaymentMode>("ALL");
@@ -34,12 +32,10 @@ export default function ReportsTab({ business }: ReportsTabProps) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch stats
       const statsRes = await fetch(`/api/stats?businessId=${business.id}&period=${period}`);
       const statsData = await statsRes.json();
       setStats(statsData);
 
-      // Fetch filtered transactions
       let url = `/api/transactions?businessId=${business.id}&period=${period}`;
       if (typeFilter !== "ALL") url += `&type=${typeFilter}`;
       if (modeFilter !== "ALL") url += `&paymentMode=${modeFilter}`;
@@ -113,7 +109,6 @@ export default function ReportsTab({ business }: ReportsTabProps) {
     groupedTransactions[dateStr].push(t);
   }
 
-  // Calculate totals from filtered list
   const currentTotalIncome = transactions
     .filter((t) => t.type === "INCOME")
     .reduce((sum, t) => sum + t.amount, 0);
@@ -127,11 +122,11 @@ export default function ReportsTab({ business }: ReportsTabProps) {
       {/* Period Filter Tabs */}
       <div className="flex items-center space-x-1.5 overflow-x-auto pb-2 no-scrollbar">
         {[
-          { id: "today", label: "Today" },
-          { id: "week", label: "This Week" },
-          { id: "month", label: "This Month" },
-          { id: "year", label: "This Year" },
-          { id: "all", label: "All Time" },
+          { id: "today", label: labels.today },
+          { id: "week", label: labels.thisWeek },
+          { id: "month", label: labels.thisMonth },
+          { id: "year", label: labels.thisYear },
+          { id: "all", label: labels.allTime },
         ].map((p) => (
           <button
             key={p.id}
@@ -153,7 +148,7 @@ export default function ReportsTab({ business }: ReportsTabProps) {
         <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col justify-between">
           <div className="flex items-center space-x-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
             <TrendingUp className="w-3 h-3" />
-            <span>Income</span>
+            <span>{labels.income}</span>
           </div>
           <div className="mt-1 font-mono font-extrabold text-sm text-emerald-600 dark:text-emerald-400 truncate">
             {business.currency} {currentTotalIncome.toLocaleString()}
@@ -164,7 +159,7 @@ export default function ReportsTab({ business }: ReportsTabProps) {
         <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex flex-col justify-between">
           <div className="flex items-center space-x-1 text-[10px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
             <TrendingDown className="w-3 h-3" />
-            <span>Expense</span>
+            <span>{labels.expense}</span>
           </div>
           <div className="mt-1 font-mono font-extrabold text-sm text-rose-600 dark:text-rose-400 truncate">
             {business.currency} {currentTotalExpense.toLocaleString()}
@@ -174,7 +169,7 @@ export default function ReportsTab({ business }: ReportsTabProps) {
         {/* Net Profit Card */}
         <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Net Profit
+            {labels.netProfit}
           </span>
           <div
             className={`mt-1 font-mono font-extrabold text-sm truncate ${
@@ -192,7 +187,7 @@ export default function ReportsTab({ business }: ReportsTabProps) {
         <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 mb-4 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Payment Breakdown
+              {labels.paymentBreakdown}
             </span>
             <span className="text-[10px] text-slate-400">Cash vs UPI</span>
           </div>
@@ -202,7 +197,7 @@ export default function ReportsTab({ business }: ReportsTabProps) {
               <div className="flex items-center justify-between text-sky-600 dark:text-sky-400 font-semibold text-[11px]">
                 <span className="flex items-center space-x-1">
                   <Smartphone className="w-3 h-3" />
-                  <span>Online / UPI</span>
+                  <span>{labels.online}</span>
                 </span>
                 <span className="font-mono">
                   {business.currency}{" "}
@@ -215,7 +210,7 @@ export default function ReportsTab({ business }: ReportsTabProps) {
               <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">
                 <span className="flex items-center space-x-1">
                   <Banknote className="w-3 h-3" />
-                  <span>Cash Hand</span>
+                  <span>{labels.cash}</span>
                 </span>
                 <span className="font-mono">
                   {business.currency}{" "}
@@ -229,7 +224,6 @@ export default function ReportsTab({ business }: ReportsTabProps) {
 
       {/* Filter and Search Bar */}
       <div className="space-y-2 mb-4">
-        {/* Type & Payment Mode Filters */}
         <div className="flex items-center space-x-2">
           {/* Type filter */}
           <select
@@ -237,9 +231,9 @@ export default function ReportsTab({ business }: ReportsTabProps) {
             onChange={(e) => setTypeFilter(e.target.value as any)}
             className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white outline-none font-semibold"
           >
-            <option value="ALL">All Types</option>
-            <option value="INCOME">Income Only</option>
-            <option value="EXPENSE">Expense Only</option>
+            <option value="ALL">{labels.allTypes}</option>
+            <option value="INCOME">{labels.income}</option>
+            <option value="EXPENSE">{labels.expense}</option>
           </select>
 
           {/* Mode filter */}
@@ -249,9 +243,9 @@ export default function ReportsTab({ business }: ReportsTabProps) {
             className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white outline-none font-semibold"
           >
             <option value="ALL">All Modes</option>
-            <option value="ONLINE">Online / UPI</option>
-            <option value="CASH">Cash</option>
-            <option value="OTHER">Other</option>
+            <option value="ONLINE">{labels.online}</option>
+            <option value="CASH">{labels.cash}</option>
+            <option value="OTHER">{labels.other}</option>
           </select>
 
           {/* Export CSV button */}
@@ -289,7 +283,6 @@ export default function ReportsTab({ business }: ReportsTabProps) {
 
           return (
             <div key={dateStr} className="space-y-2">
-              {/* Day Header */}
               <div className="flex items-center justify-between px-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                 <span>{dateStr}</span>
                 <div className="flex items-center space-x-2 font-mono text-[10px]">
@@ -298,7 +291,6 @@ export default function ReportsTab({ business }: ReportsTabProps) {
                 </div>
               </div>
 
-              {/* Day Items */}
               <div className="space-y-1.5">
                 {items.map((tx) => {
                   const isIncome = tx.type === "INCOME";

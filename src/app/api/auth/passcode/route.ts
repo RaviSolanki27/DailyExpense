@@ -50,3 +50,4 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: error.message || "Failed to update" }, { status: 500 });
   }
 }
+

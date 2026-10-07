@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BusinessProfile } from "@/types";
 import {
   Building2,
@@ -10,12 +10,14 @@ import {
   Moon,
   Sun,
   Smartphone,
-  ShieldCheck,
   Check,
   Plus,
   Edit2,
-  Terminal,
-  ExternalLink,
+  Download,
+  Share,
+  Languages,
+  CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 
 interface SettingsTabProps {
@@ -28,6 +30,8 @@ interface SettingsTabProps {
   onToggleTheme: () => void;
   dbStatus: "connected" | "fallback_mode";
   onLockApp: () => void;
+  showHindi: boolean;
+  onToggleHindi: () => void;
 }
 
 export default function SettingsTab({
@@ -40,6 +44,8 @@ export default function SettingsTab({
   onToggleTheme,
   dbStatus,
   onLockApp,
+  showHindi,
+  onToggleHindi,
 }: SettingsTabProps) {
   // Passcode change state
   const [currentPin, setCurrentPin] = useState("");
@@ -47,6 +53,58 @@ export default function SettingsTab({
   const [confirmPin, setConfirmPin] = useState("");
   const [pinMessage, setPinMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [pinLoading, setPinLoading] = useState(false);
+
+  // PWA Install state
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState<boolean>(false);
+  const [isIOS, setIsIOS] = useState<boolean>(false);
+  const [showIOSGuide, setShowIOSGuide] = useState<boolean>(false);
+  const [installSuccess, setInstallSuccess] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Check if app is already running standalone
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true;
+    setIsStandalone(standalone);
+
+    // Check if iOS
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isApple = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(isApple);
+
+    // Capture beforeinstallprompt for Android & Desktop Chrome/Edge
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (isStandalone) {
+      alert("DailyExpense is already installed on this device!");
+      return;
+    }
+
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choice = await deferredPrompt.userChoice;
+      if (choice.outcome === "accepted") {
+        setInstallSuccess(true);
+      }
+      setDeferredPrompt(null);
+    } else if (isIOS) {
+      setShowIOSGuide(true);
+    } else {
+      // General instructions for mobile/desktop
+      alert(
+        "To install on your device: Tap your browser's menu (⋮ or Share icon) and tap 'Install app' or 'Add to Home screen'!"
+      );
+    }
+  };
 
   const handleUpdatePin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,8 +145,133 @@ export default function SettingsTab({
   };
 
   return (
-    <div className="max-w-md mx-auto px-4 pb-24 pt-3 space-y-5">
-      {/* 1. Business Profiles Management */}
+    <div className="max-w-md mx-auto px-4 pb-24 pt-3 space-y-4">
+      {/* 1. PWA Install Card (High Priority) */}
+      <div className="p-4 rounded-3xl bg-gradient-to-tr from-emerald-600/15 via-teal-500/10 to-sky-500/10 border border-emerald-500/30 shadow-xs">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/30">
+              <Smartphone className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                Install Mobile App (PWA)
+              </h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                {isStandalone
+                  ? "Installed as standalone app"
+                  : "Works offline with 1-tap launcher on Android & iOS"}
+              </p>
+            </div>
+          </div>
+
+          {isStandalone && (
+            <span className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+              <Check className="w-3.5 h-3.5" />
+              <span>Installed</span>
+            </span>
+          )}
+        </div>
+
+        {!isStandalone ? (
+          <button
+            onClick={handleInstallClick}
+            className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all active-press"
+          >
+            <Download className="w-4 h-4" />
+            <span>Install App on Home Screen (ऐप इनस्टॉल करें)</span>
+          </button>
+        ) : (
+          <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center space-x-2">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+            <span>App is installed and running in standalone mobile mode!</span>
+          </div>
+        )}
+
+        {/* iOS installation guide helper */}
+        {showIOSGuide && (
+          <div className="mt-3 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 space-y-2 animate-in fade-in duration-150">
+            <div className="font-bold text-slate-900 dark:text-white flex items-center space-x-1.5">
+              <Share className="w-4 h-4 text-sky-500" />
+              <span>How to Install on iPhone / iPad (iOS Safari):</span>
+            </div>
+            <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-400">
+              <li>Tap the <strong>Share button [⎋]</strong> at the bottom of Safari.</li>
+              <li>Scroll down and tap <strong>&quot;Add to Home Screen&quot; [+]</strong>.</li>
+              <li>Tap <strong>&quot;Add&quot;</strong> at top right to install!</li>
+            </ol>
+            <button
+              onClick={() => setShowIOSGuide(false)}
+              className="text-[10px] text-emerald-500 font-bold hover:underline"
+            >
+              Close instructions
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 2. Hindi Translation Toggle */}
+      <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center">
+              <Languages className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                Show Hindi Translation
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                हिंदी अनुवाद साथ में दिखाएं (Bilingual Mode)
+              </span>
+            </div>
+          </div>
+
+          {/* Toggle Switch */}
+          <button
+            onClick={onToggleHindi}
+            type="button"
+            className={`w-12 h-6 rounded-full transition-colors p-1 flex items-center ${
+              showHindi ? "bg-emerald-600 justify-end" : "bg-slate-300 dark:bg-slate-700 justify-start"
+            }`}
+          >
+            <div className="w-4 h-4 rounded-full bg-white shadow-md transform transition-transform" />
+          </button>
+        </div>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2">
+          {showHindi
+            ? "Bilingual hints active: Labels show English alongside Hindi (e.g. Income / आमदनी, Expense / खर्चा)."
+            : "Clean mode active: Showing English labels only."}
+        </p>
+      </div>
+
+      {/* 3. Theme Mode (Dark / Light) */}
+      <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
+              {darkMode ? <Moon className="w-4 h-4 text-indigo-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
+            </div>
+            <div>
+              <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                Appearance (थीम)
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                Currently: <strong>{darkMode ? "Dark Mode" : "Light Mode"}</strong>
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={onToggleTheme}
+            className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 active-press"
+          >
+            {darkMode ? "Switch to Light ☀️" : "Switch to Dark 🌙"}
+          </button>
+        </div>
+      </div>
+
+      {/* 4. Business Profiles Management */}
       <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2">
@@ -161,7 +344,7 @@ export default function SettingsTab({
         </div>
       </div>
 
-      {/* 2. Security & 4-Digit Passcode */}
+      {/* 5. Security & 4-Digit Passcode */}
       <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2">
@@ -261,83 +444,33 @@ export default function SettingsTab({
         </form>
       </div>
 
-      {/* 3. Database & NeonDB Configuration */}
+      {/* 6. Database Connection Status */}
       <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="flex items-center space-x-2 mb-3">
+        <div className="flex items-center space-x-2 mb-2">
           <Database className="w-4 h-4 text-emerald-500" />
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
-            PostgreSQL / NeonDB Connection
+            Neon PostgreSQL Database
           </h3>
         </div>
 
-        <div className="space-y-2 text-xs">
-          <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80">
-            <span className="text-slate-500">Database Status:</span>
-            <div className="flex items-center space-x-1.5">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  dbStatus === "connected" ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
-                }`}
-              />
-              <span className="font-bold">
-                {dbStatus === "connected" ? "Connected (NeonDB)" : "Local Storage Mode"}
-              </span>
-            </div>
+        <div className="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 text-xs">
+          <span className="text-slate-500">Status:</span>
+          <div className="flex items-center space-x-1.5">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                dbStatus === "connected" ? "bg-emerald-500" : "bg-amber-500 animate-pulse"
+              }`}
+            />
+            <span className="font-bold">
+              {dbStatus === "connected" ? "Connected (NeonDB)" : "Local Storage Mode"}
+            </span>
           </div>
-
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-            To connect your live Neon database:
-          </p>
-
-          <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
-            <li>
-              Open <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">.env</code> in this project folder.
-            </li>
-            <li>
-              Paste your NeonDB URL into <code className="font-mono bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">DATABASE_URL</code>
-            </li>
-            <li>
-              Run command: <code className="font-mono text-emerald-500">npm run db:push</code>
-            </li>
-            <li>
-              Seed initial businesses: <code className="font-mono text-emerald-500">npm run db:seed</code>
-            </li>
-          </ol>
         </div>
       </div>
 
-      {/* 4. Appearance & PWA Installation */}
-      <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            {darkMode ? <Moon className="w-4 h-4 text-indigo-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
-            <span className="text-xs font-bold text-slate-900 dark:text-white">Dark / Light Mode</span>
-          </div>
-          <button
-            onClick={onToggleTheme}
-            className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300"
-          >
-            {darkMode ? "Switch to Light" : "Switch to Dark"}
-          </button>
-        </div>
-
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Smartphone className="w-4 h-4 text-emerald-500" />
-            <div>
-              <span className="text-xs font-bold text-slate-900 dark:text-white block">PWA Mobile App</span>
-              <span className="text-[10px] text-slate-400">Installable on Android & iOS</span>
-            </div>
-          </div>
-          <span className="text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-lg">
-            Ready to Install
-          </span>
-        </div>
-      </div>
-
-      {/* App Version Info */}
+      {/* Footer */}
       <div className="text-center pt-2 pb-6 text-[10px] text-slate-400">
-        Daily Business Expense & Khata • v1.0.0 PWA
+        Daily Business Expense & Khata • Poppins Font • PWA
       </div>
     </div>
   );
