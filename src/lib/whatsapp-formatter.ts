@@ -382,3 +382,4 @@ export function openWhatsAppShare(text: string, phone?: string | null) {
 
   window.open(url, "_blank");
 }
+
