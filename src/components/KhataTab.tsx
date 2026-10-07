@@ -13,7 +13,13 @@ import {
   MessageCircle,
   Trash2,
   X,
+  Copy,
+  Check,
 } from "lucide-react";
+import {
+  copyTextToClipboard,
+  generateKhataPartyStatementText,
+} from "@/lib/whatsapp-formatter";
 
 interface KhataTabProps {
   business: BusinessProfile;
@@ -42,6 +48,39 @@ export default function KhataTab({ business, showHindi }: KhataTabProps) {
   const [entryDate, setEntryDate] = useState<string>(new Date().toISOString().split("T")[0]);
 
   const [loading, setLoading] = useState<boolean>(true);
+  const [copiedPartyId, setCopiedPartyId] = useState<string | null>(null);
+
+  const handleCopyPartyStatement = async (party: KhataParty, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const text = generateKhataPartyStatementText(party, business.name, business.currency);
+    const ok = await copyTextToClipboard(text);
+    if (ok) {
+      setCopiedPartyId(party.id);
+      setTimeout(() => setCopiedPartyId(null), 2000);
+    }
+  };
+
+  const handleCopyEntry = async (entry: any, partyName: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const isGave = entry.type === "GAVE";
+    const actionText = isGave ? "Maine Diye (You Paid)" : "Maine Liye (You Received)";
+    const lines = [
+      `📝 *Khata Entry Receipt*`,
+      `🏢 *Business:* ${business.name}`,
+      `👤 *Party:* ${partyName}`,
+      `📅 *Date:* ${new Date(entry.date).toLocaleDateString("en-IN")}`,
+      `🏷️ *Type:* ${actionText}`,
+      `💳 *Mode:* ${entry.paymentMode}`,
+      `💵 *Amount:* ${business.currency}${entry.amount.toLocaleString()}`,
+    ];
+    if (entry.description) lines.push(`📌 *Note:* ${entry.description}`);
+    lines.push(`_Daily Expense App_`);
+    const ok = await copyTextToClipboard(lines.join("\n"));
+    if (ok) {
+      setCopiedPartyId(entry.id);
+      setTimeout(() => setCopiedPartyId(null), 2000);
+    }
+  };
 
   const fetchParties = async () => {
     try {
@@ -297,21 +336,35 @@ export default function KhataTab({ business, showHindi }: KhataTabProps) {
                 </div>
               </div>
 
-              <div className="text-right flex-shrink-0">
-                <div
-                  className={`text-xs font-extrabold font-mono ${
-                    isReceivable
-                      ? "text-emerald-500"
-                      : isPayable
-                      ? "text-rose-500"
-                      : "text-slate-400"
-                  }`}
+              <div className="flex items-center space-x-2 flex-shrink-0">
+                <div className="text-right">
+                  <div
+                    className={`text-xs font-extrabold font-mono ${
+                      isReceivable
+                        ? "text-emerald-500"
+                        : isPayable
+                        ? "text-rose-500"
+                        : "text-slate-400"
+                    }`}
+                  >
+                    {business.currency} {Math.abs(party.netBalance).toLocaleString()}
+                  </div>
+                  <div className="text-[10px] font-semibold text-slate-400">
+                    {isReceivable ? labels.youWillGet : isPayable ? labels.youWillGive : labels.settled}
+                  </div>
+                </div>
+
+                <button
+                  onClick={(e) => handleCopyPartyStatement(party, e)}
+                  title="Copy statement for WhatsApp"
+                  className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-emerald-500 transition-colors active-press"
                 >
-                  {business.currency} {Math.abs(party.netBalance).toLocaleString()}
-                </div>
-                <div className="text-[10px] font-semibold text-slate-400">
-                  {isReceivable ? labels.youWillGet : isPayable ? labels.youWillGive : labels.settled}
-                </div>
+                  {copiedPartyId === party.id ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
               </div>
             </div>
           );
@@ -349,6 +402,17 @@ export default function KhataTab({ business, showHindi }: KhataTabProps) {
               </div>
 
               <div className="flex items-center space-x-1.5">
+                <button
+                  onClick={() => handleCopyPartyStatement(selectedParty)}
+                  title="Copy Statement for WhatsApp"
+                  className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-emerald-500 active-press"
+                >
+                  {copiedPartyId === selectedParty.id ? (
+                    <Check className="w-4 h-4 text-emerald-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
                 {selectedParty.phone && (
                   <button
                     onClick={() => sendWhatsAppReminder(selectedParty)}
@@ -444,6 +508,17 @@ export default function KhataTab({ business, showHindi }: KhataTabProps) {
                         {isGave ? "-" : "+"}
                         {business.currency} {entry.amount.toLocaleString()}
                       </span>
+                      <button
+                        onClick={(e) => handleCopyEntry(entry, selectedParty.name, e)}
+                        title="Copy entry receipt"
+                        className="p-1 rounded-lg text-slate-400 hover:text-emerald-500 active-press"
+                      >
+                        {copiedPartyId === entry.id ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
                       <button
                         onClick={() => handleDeleteEntry(entry.id)}
                         className="p-1 rounded-lg text-slate-400 hover:text-red-400 active-press"

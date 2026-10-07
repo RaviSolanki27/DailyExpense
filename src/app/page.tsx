@@ -9,6 +9,7 @@ import ReportsTab from "@/components/ReportsTab";
 import KhataTab from "@/components/KhataTab";
 import SettingsTab from "@/components/SettingsTab";
 import BusinessModal from "@/components/BusinessModal";
+import CopyModal from "@/components/CopyModal";
 import { GlobalAppLoader } from "@/components/Skeletons";
 import { BusinessProfile, FrequentTag } from "@/types";
 
@@ -23,6 +24,7 @@ export default function Home() {
 
   // Modals state
   const [showBusinessModal, setShowBusinessModal] = useState<boolean>(false);
+  const [showCopyModal, setShowCopyModal] = useState<boolean>(false);
   const [businessToEdit, setBusinessToEdit] = useState<BusinessProfile | null>(null);
 
   // Settings: Theme & Hindi Translation
@@ -240,6 +242,7 @@ export default function Home() {
         onToggleTheme={toggleTheme}
         dbStatus={dbStatus}
         showHindi={showHindi}
+        onOpenCopyModal={() => setShowCopyModal(true)}
       />
 
       {/* Main Content View by Active Tab */}
@@ -318,6 +321,17 @@ export default function Home() {
           }}
           onSave={handleSaveBusiness}
           onDelete={businessToEdit ? handleDeleteBusiness : undefined}
+        />
+      )}
+
+      {/* Copy & Share Daily Hisab Modal */}
+      {showCopyModal && (
+        <CopyModal
+          isOpen={showCopyModal}
+          onClose={() => setShowCopyModal(false)}
+          businesses={businesses}
+          currentBusiness={currentBusiness}
+          showHindi={showHindi}
         />
       )}
     </main>

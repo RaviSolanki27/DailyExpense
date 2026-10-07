@@ -1062,3 +1062,163 @@ export async function getBusinessStats(
     transactionCount: transactions.length,
   };
 }
+
+// ---------------- COMPREHENSIVE DAILY & KHATA SUMMARY ----------------
+export async function getComprehensiveSummary(options: {
+  businessId?: string; // "all" or specific business id
+  dateStr?: string; // YYYY-MM-DD
+}) {
+  const allBusinesses = await getBusinesses();
+  const targetBusinesses =
+    !options.businessId || options.businessId === "all"
+      ? allBusinesses
+      : allBusinesses.filter((b) => b.id === options.businessId);
+
+  // Parse target date
+  let startOfDay: Date;
+  let endOfDay: Date;
+  let effectiveDateStr = options.dateStr;
+
+  if (effectiveDateStr) {
+    const parts = effectiveDateStr.split("-").map(Number);
+    startOfDay = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+    endOfDay = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+  } else {
+    const now = new Date();
+    effectiveDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  }
+
+  const businessSummaries = [];
+  let grandTotalIncome = 0;
+  let grandTotalExpense = 0;
+  let grandTotalLena = 0;
+  let grandTotalDena = 0;
+
+  for (const biz of targetBusinesses) {
+    // 1. Fetch transactions for this business on this day
+    const transactions = await getTransactions(biz.id, {
+      startDate: startOfDay.toISOString(),
+      endDate: endOfDay.toISOString(),
+    });
+
+    let totalIncome = 0;
+    let onlineIncome = 0;
+    let cashIncome = 0;
+    let otherIncome = 0;
+    const incomeItems: Array<{ title: string; amount: number; paymentMode: string; note?: string | null }> = [];
+
+    let totalExpense = 0;
+    let onlineExpense = 0;
+    let cashExpense = 0;
+    let otherExpense = 0;
+    const expenseItems: Array<{ title: string; amount: number; paymentMode: string; note?: string | null }> = [];
+
+    for (const t of transactions) {
+      if (t.type === "INCOME") {
+        totalIncome += t.amount;
+        if (t.paymentMode === "ONLINE") onlineIncome += t.amount;
+        else if (t.paymentMode === "CASH") cashIncome += t.amount;
+        else otherIncome += t.amount;
+        incomeItems.push({
+          title: t.title,
+          amount: t.amount,
+          paymentMode: t.paymentMode,
+          note: t.note,
+        });
+      } else {
+        totalExpense += t.amount;
+        if (t.paymentMode === "ONLINE") onlineExpense += t.amount;
+        else if (t.paymentMode === "CASH") cashExpense += t.amount;
+        else otherExpense += t.amount;
+        expenseItems.push({
+          title: t.title,
+          amount: t.amount,
+          paymentMode: t.paymentMode,
+          note: t.note,
+        });
+      }
+    }
+
+    // 2. Fetch Khata parties for this business
+    const khataParties = await getKhataParties(biz.id);
+    const lenaList: Array<{ id: string; name: string; phone?: string | null; amount: number }> = [];
+    const denaList: Array<{ id: string; name: string; phone?: string | null; amount: number }> = [];
+    let totalLena = 0;
+    let totalDena = 0;
+
+    for (const p of khataParties) {
+      // p.netBalance > 0 means party owes us (Lena / लेना बाकी)
+      // p.netBalance < 0 means we owe party (Dena / देना बाकी)
+      if (p.netBalance > 0) {
+        lenaList.push({
+          id: p.id,
+          name: p.name,
+          phone: p.phone,
+          amount: p.netBalance,
+        });
+        totalLena += p.netBalance;
+      } else if (p.netBalance < 0) {
+        denaList.push({
+          id: p.id,
+          name: p.name,
+          phone: p.phone,
+          amount: Math.abs(p.netBalance),
+        });
+        totalDena += Math.abs(p.netBalance);
+      }
+    }
+
+    // Sort parties by amount descending
+    lenaList.sort((a, b) => b.amount - a.amount);
+    denaList.sort((a, b) => b.amount - a.amount);
+
+    grandTotalIncome += totalIncome;
+    grandTotalExpense += totalExpense;
+    grandTotalLena += totalLena;
+    grandTotalDena += totalDena;
+
+    businessSummaries.push({
+      business: {
+        id: biz.id,
+        name: biz.name,
+        category: biz.category,
+        currency: biz.currency || "₹",
+      },
+      income: {
+        total: totalIncome,
+        online: onlineIncome,
+        cash: cashIncome,
+        other: otherIncome,
+        items: incomeItems,
+      },
+      expenses: {
+        total: totalExpense,
+        online: onlineExpense,
+        cash: cashExpense,
+        other: otherExpense,
+        items: expenseItems,
+      },
+      netBalance: totalIncome - totalExpense,
+      khata: {
+        lenaList,
+        totalLena,
+        denaList,
+        totalDena,
+      },
+    });
+  }
+
+  return {
+    date: effectiveDateStr,
+    businesses: businessSummaries,
+    grandTotal: {
+      totalIncome: grandTotalIncome,
+      totalExpense: grandTotalExpense,
+      netBalance: grandTotalIncome - grandTotalExpense,
+      totalLena: grandTotalLena,
+      totalDena: grandTotalDena,
+    },
+  };
+}

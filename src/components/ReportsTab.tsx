@@ -13,7 +13,13 @@ import {
   Smartphone,
   Banknote,
   Trash2,
+  Copy,
+  Check,
 } from "lucide-react";
+import {
+  copyTextToClipboard,
+  generateSingleTransactionText,
+} from "@/lib/whatsapp-formatter";
 
 interface ReportsTabProps {
   business: BusinessProfile;
@@ -29,6 +35,50 @@ export default function ReportsTab({ business, showHindi }: ReportsTabProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stats, setStats] = useState<BusinessStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopySingleTx = async (tx: Transaction, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const text = generateSingleTransactionText(tx, business.name, business.currency);
+    const ok = await copyTextToClipboard(text);
+    if (ok) {
+      setCopiedId(tx.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
+
+  const handleCopyDaySummary = async (dateStr: string, items: Transaction[], e: React.MouseEvent) => {
+    e.stopPropagation();
+    const dayIncome = items.filter((i) => i.type === "INCOME").reduce((s, i) => s + i.amount, 0);
+    const dayExpense = items.filter((i) => i.type === "EXPENSE").reduce((s, i) => s + i.amount, 0);
+    const net = dayIncome - dayExpense;
+    const netSign = net >= 0 ? "+" : "";
+
+    const lines = [
+      `📊 *Hisab for ${dateStr}*`,
+      `🏢 *Business:* ${business.name}`,
+      `💰 *Income (जमा):* ${business.currency}${dayIncome.toLocaleString()}`,
+      `💸 *Expense (खर्च):* ${business.currency}${dayExpense.toLocaleString()}`,
+      `📈 *Net Balance:* ${netSign}${business.currency}${net.toLocaleString()}`,
+      "",
+      `*Transactions:*`,
+    ];
+
+    items.forEach((it) => {
+      const sign = it.type === "INCOME" ? "+" : "-";
+      lines.push(`  • ${sign}${business.currency}${it.amount.toLocaleString()} - ${it.title} (${it.paymentMode})`);
+    });
+
+    lines.push("");
+    lines.push(`_Sent via Daily Expense Tracker_`);
+
+    const text = lines.join("\n");
+    const ok = await copyTextToClipboard(text);
+    if (ok) {
+      setCopiedId(dateStr);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -289,7 +339,21 @@ export default function ReportsTab({ business, showHindi }: ReportsTabProps) {
           return (
             <div key={dateStr} className="space-y-2">
               <div className="flex items-center justify-between px-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                <span>{dateStr}</span>
+                <div className="flex items-center space-x-2">
+                  <span>{dateStr}</span>
+                  <button
+                    onClick={(e) => handleCopyDaySummary(dateStr, items, e)}
+                    title="Copy this day's hisab"
+                    className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-emerald-500 transition-colors flex items-center space-x-1"
+                  >
+                    {copiedId === dateStr ? (
+                      <Check className="w-3 h-3 text-emerald-500" />
+                    ) : (
+                      <Copy className="w-3 h-3" />
+                    )}
+                    <span className="text-[10px] font-medium">{copiedId === dateStr ? "Copied" : "Copy"}</span>
+                  </button>
+                </div>
                 <div className="flex items-center space-x-2 font-mono text-[10px]">
                   {dayIncome > 0 && <span className="text-emerald-500">+{business.currency}{dayIncome.toLocaleString()}</span>}
                   {dayExpense > 0 && <span className="text-rose-500">-{business.currency}{dayExpense.toLocaleString()}</span>}
@@ -342,6 +406,17 @@ export default function ReportsTab({ business, showHindi }: ReportsTabProps) {
                           {isIncome ? "+" : "-"}
                           {business.currency} {tx.amount.toLocaleString()}
                         </span>
+                        <button
+                          onClick={(e) => handleCopySingleTx(tx, e)}
+                          title="Copy transaction details"
+                          className="p-1 rounded-lg text-slate-400 hover:text-emerald-500 active-press"
+                        >
+                          {copiedId === tx.id ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
                         <button
                           onClick={() => handleDelete(tx.id)}
                           className="p-1 rounded-lg text-slate-400 hover:text-red-400 active-press"
