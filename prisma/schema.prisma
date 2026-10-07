@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Global App Security & Settings (e.g. 4-digit passcode, default '0000')
+model AppConfig {
+  id        String   @id @default("default")
+  passcode  String   @default("0000") // 4-digit passcode, default 0000
+  appName   String   @default("Daily Expense Tracker")
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+// Business Profiles (e.g., Plywood, Restaurant, Car Rental)
+model BusinessProfile {
+  id          String   @id @default(cuid())
+  name        String
+  category    String?  // e.g. "Manufacturing", "Food & Dining", "Transport"
+  description String?
+  currency    String   @default("₹")
+  color       String   @default("emerald") // emerald, blue, violet, amber, rose, cyan
+  icon        String   @default("briefcase") // icon identifier
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions      Transaction[]
+  frequentExpenses  FrequentExpenseTag[]
+  parties           KhataParty[]
+}
+
+// Transactions: Income and Expense entries
+model Transaction {
+  id          String   @id @default(cuid())
+  businessId  String
+  type        String   // "INCOME" or "EXPENSE"
+  amount      Float
+  title       String   // e.g. "Vegetables", "UPI from Sharma ji", "Hardware"
+  paymentMode String   @default("CASH") // "ONLINE", "CASH", "OTHER"
+  date        DateTime @default(now())
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business    BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, date])
+  @@index([businessId, type])
+}
+
+// Quick suggestion buttons / frequently used expenses for 1-tap entry
+model FrequentExpenseTag {
+  id         String   @id @default(cuid())
+  businessId String
+  label      String   // e.g. "Vegetables", "Fuel", "Labor", "Raw Materials"
+  usageCount Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business   BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, label])
+}
+
+// Khata Book / Ledger (Borrow & Lend)
+model KhataParty {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  phone      String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business   BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  entries    KhataEntry[]
+
+  @@index([businessId])
+}
+
+model KhataEntry {
+  id          String   @id @default(cuid())
+  partyId     String
+  type        String   // "GAVE" (You gave / Customer borrowed - Maine Diye) | "GOT" (You got / You borrowed - Maine Liye)
+  amount      Float
+  date        DateTime @default(now())
+  description String?
+  paymentMode String   @default("CASH") // "ONLINE", "CASH", "OTHER"
+  isSettled   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  party       KhataParty @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@index([partyId, date])
+}

@@ -1,69 +1,306 @@
-import Image from "next/image";
+"use client";
+
+import React, { useState, useEffect } from "react";
+import PasscodeLock from "@/components/PasscodeLock";
+import Header from "@/components/Header";
+import BottomNav, { TabType } from "@/components/BottomNav";
+import QuickAddTab from "@/components/QuickAddTab";
+import ReportsTab from "@/components/ReportsTab";
+import KhataTab from "@/components/KhataTab";
+import SettingsTab from "@/components/SettingsTab";
+import BusinessModal from "@/components/BusinessModal";
+import { BusinessProfile, FrequentTag } from "@/types";
 
 export default function Home() {
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
+  const [checkedLock, setCheckedLock] = useState<boolean>(false);
+
+  // App data state
+  const [businesses, setBusinesses] = useState<BusinessProfile[]>([]);
+  const [currentBusiness, setCurrentBusiness] = useState<BusinessProfile | null>(null);
+  const [frequentTags, setFrequentTags] = useState<FrequentTag[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>("add");
+
+  // Modals state
+  const [showBusinessModal, setShowBusinessModal] = useState<boolean>(false);
+  const [businessToEdit, setBusinessToEdit] = useState<BusinessProfile | null>(null);
+
+  // Settings & Theme
+  const [darkMode, setDarkMode] = useState<boolean>(true);
+  const [dbStatus, setDbStatus] = useState<"connected" | "fallback_mode">("connected");
+  const [loading, setLoading] = useState<boolean>(true);
+
+  // 1. Initial lock check and theme setup
+  useEffect(() => {
+    // Check lock
+    const unlocked = sessionStorage.getItem("daily_expense_unlocked") === "true";
+    setIsUnlocked(unlocked);
+    setCheckedLock(true);
+
+    // Theme setup
+    const savedTheme = localStorage.getItem("daily_expense_theme");
+    const isDark = savedTheme ? savedTheme === "dark" : true;
+    setDarkMode(isDark);
+    if (isDark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+
+    // Check DB status
+    fetch("/api/status")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.database === "connected") setDbStatus("connected");
+        else setDbStatus("fallback_mode");
+      })
+      .catch(() => setDbStatus("fallback_mode"));
+  }, []);
+
+  // 2. Fetch businesses
+  const fetchBusinesses = async () => {
+    try {
+      const res = await fetch("/api/businesses");
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        setBusinesses(data);
+
+        // Retrieve last active business or default to first
+        const savedBizId = localStorage.getItem("daily_expense_active_biz");
+        const found = data.find((b: BusinessProfile) => b.id === savedBizId);
+        const selected = found || data[0];
+        setCurrentBusiness(selected);
+      }
+    } catch (e) {
+      console.warn("Failed to fetch businesses:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isUnlocked) {
+      fetchBusinesses();
+    }
+  }, [isUnlocked]);
+
+  // 3. Fetch frequent tags when business changes
+  const fetchFrequentTags = async (businessId: string) => {
+    try {
+      const res = await fetch(`/api/frequent-tags?businessId=${businessId}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setFrequentTags(data);
+      }
+    } catch (e) {
+      console.warn("Failed to fetch tags:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (currentBusiness) {
+      fetchFrequentTags(currentBusiness.id);
+      localStorage.setItem("daily_expense_active_biz", currentBusiness.id);
+    }
+  }, [currentBusiness?.id]);
+
+  // Handle business selection
+  const handleSelectBusiness = (biz: BusinessProfile) => {
+    setCurrentBusiness(biz);
+  };
+
+  // Handle business save (create or edit)
+  const handleSaveBusiness = async (data: {
+    name: string;
+    category?: string;
+    description?: string;
+    currency?: string;
+    color?: string;
+    icon?: string;
+  }) => {
+    if (businessToEdit) {
+      const res = await fetch(`/api/businesses/${businessToEdit.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setBusinesses((prev) => prev.map((b) => (b.id === updated.id ? updated : b)));
+        if (currentBusiness?.id === updated.id) setCurrentBusiness(updated);
+      }
+    } else {
+      const res = await fetch("/api/businesses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setBusinesses((prev) => [...prev, created]);
+        setCurrentBusiness(created);
+      }
+    }
+  };
+
+  // Handle business delete
+  const handleDeleteBusiness = async (id: string) => {
+    const res = await fetch(`/api/businesses/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      const remaining = businesses.filter((b) => b.id !== id);
+      setBusinesses(remaining);
+      if (remaining.length > 0) {
+        setCurrentBusiness(remaining[0]);
+      } else {
+        setCurrentBusiness(null);
+      }
+    }
+  };
+
+  // Handle adding new frequent tag
+  const handleAddFrequentTag = async (label: string) => {
+    if (!currentBusiness) return;
+    try {
+      const res = await fetch("/api/frequent-tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: currentBusiness.id, label }),
+      });
+      if (res.ok) {
+        fetchFrequentTags(currentBusiness.id);
+      }
+    } catch (e) {
+      console.warn("Failed to add tag:", e);
+    }
+  };
+
+  // Theme toggle
+  const toggleTheme = () => {
+    const nextDark = !darkMode;
+    setDarkMode(nextDark);
+    if (nextDark) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("daily_expense_theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("daily_expense_theme", "light");
+    }
+  };
+
+  // Lock App
+  const handleLockApp = () => {
+    sessionStorage.removeItem("daily_expense_unlocked");
+    setIsUnlocked(false);
+  };
+
+  // Don't render until lock status is checked
+  if (!checkedLock) return null;
+
+  // Passcode Lock Screen
+  if (!isUnlocked) {
+    return <PasscodeLock onUnlock={() => setIsUnlocked(true)} />;
+  }
+
+  // Loading state
+  if (loading && businesses.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+        <div className="flex flex-col items-center space-y-3">
+          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs font-semibold text-slate-400">Loading your business tracker...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-emerald-500/20">
+      {/* Top Header */}
+      <Header
+        businesses={businesses}
+        currentBusiness={currentBusiness}
+        onSelectBusiness={handleSelectBusiness}
+        onOpenNewBusinessModal={() => {
+          setBusinessToEdit(null);
+          setShowBusinessModal(true);
+        }}
+        onLockApp={handleLockApp}
+        darkMode={darkMode}
+        onToggleTheme={toggleTheme}
+        dbStatus={dbStatus}
+      />
+
+      {/* Main Content View by Active Tab */}
+      <div className="flex-1 w-full max-w-md mx-auto">
+        {currentBusiness ? (
+          <>
+            {activeTab === "add" && (
+              <QuickAddTab
+                business={currentBusiness}
+                frequentTags={frequentTags}
+                onRefreshData={() => {}}
+                onAddFrequentTag={handleAddFrequentTag}
+              />
+            )}
+
+            {activeTab === "reports" && <ReportsTab business={currentBusiness} />}
+
+            {activeTab === "khata" && <KhataTab business={currentBusiness} />}
+
+            {activeTab === "settings" && (
+              <SettingsTab
+                businesses={businesses}
+                currentBusiness={currentBusiness}
+                onSelectBusiness={handleSelectBusiness}
+                onOpenCreateBusiness={() => {
+                  setBusinessToEdit(null);
+                  setShowBusinessModal(true);
+                }}
+                onEditBusiness={(biz) => {
+                  setBusinessToEdit(biz);
+                  setShowBusinessModal(true);
+                }}
+                darkMode={darkMode}
+                onToggleTheme={toggleTheme}
+                dbStatus={dbStatus}
+                onLockApp={handleLockApp}
+              />
+            )}
+          </>
+        ) : (
+          <div className="text-center py-20 px-4">
+            <h2 className="text-base font-bold mb-2">No Business Profiles</h2>
+            <p className="text-xs text-slate-400 mb-4">
+              Create your first business profile to begin tracking expenses and income.
+            </p>
+            <button
+              onClick={() => {
+                setBusinessToEdit(null);
+                setShowBusinessModal(true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-md shadow-emerald-600/30"
+            >
+              + Create Business Profile
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Navigation */}
+      <BottomNav activeTab={activeTab} onChangeTab={setActiveTab} />
+
+      {/* Business Profile Modal */}
+      {showBusinessModal && (
+        <BusinessModal
+          businessToEdit={businessToEdit}
+          onClose={() => {
+            setShowBusinessModal(false);
+            setBusinessToEdit(null);
+          }}
+          onSave={handleSaveBusiness}
+          onDelete={businessToEdit ? handleDeleteBusiness : undefined}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+    </main>
   );
 }
