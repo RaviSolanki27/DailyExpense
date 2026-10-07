@@ -13,7 +13,6 @@ import { BusinessProfile, FrequentTag } from "@/types";
 
 export default function Home() {
   const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
-  const [checkedLock, setCheckedLock] = useState<boolean>(false);
 
   // App data state
   const [businesses, setBusinesses] = useState<BusinessProfile[]>([]);
@@ -31,39 +30,35 @@ export default function Home() {
   const [dbStatus, setDbStatus] = useState<"connected" | "fallback_mode">("connected");
   const [loading, setLoading] = useState<boolean>(true);
 
-  // 1. Initial lock check, theme, and Hindi setup
+  // 1. Initial unlock check, theme, and Hindi setup
   useEffect(() => {
-    // Check lock
-    const unlocked = sessionStorage.getItem("daily_expense_unlocked") === "true";
-    setIsUnlocked(unlocked);
-    setCheckedLock(true);
+    // Check lock in session
+    try {
+      const unlocked = sessionStorage.getItem("daily_expense_unlocked") === "true";
+      if (unlocked) setIsUnlocked(true);
+    } catch {}
 
-    // Theme setup: check localStorage first
-    const savedTheme = localStorage.getItem("daily_expense_theme");
-    let isDark = false;
-    if (savedTheme === "dark") {
-      isDark = true;
-    } else if (savedTheme === "light") {
-      isDark = false;
-    } else {
-      // Default to false (Light Mode) if not set, or check media query
-      isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    }
-
-    setDarkMode(isDark);
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    // Theme setup: default to light unless dark saved
+    try {
+      const savedTheme = localStorage.getItem("daily_expense_theme");
+      const isDark = savedTheme === "dark";
+      setDarkMode(isDark);
+      if (isDark) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    } catch {}
 
     // Hindi translation setup: default true
-    const savedHindi = localStorage.getItem("daily_expense_show_hindi");
-    if (savedHindi !== null) {
-      setShowHindi(savedHindi === "true");
-    } else {
-      setShowHindi(true);
-    }
+    try {
+      const savedHindi = localStorage.getItem("daily_expense_show_hindi");
+      if (savedHindi !== null) {
+        setShowHindi(savedHindi === "true");
+      } else {
+        setShowHindi(true);
+      }
+    } catch {}
 
     // Check DB status
     fetch("/api/status")
@@ -218,10 +213,7 @@ export default function Home() {
     setIsUnlocked(false);
   };
 
-  // Don't render until lock status is checked
-  if (!checkedLock) return null;
-
-  // Passcode Lock Screen
+  // Passcode Lock Screen (Always renders by default when locked, never returns null)
   if (!isUnlocked) {
     return <PasscodeLock onUnlock={() => setIsUnlocked(true)} />;
   }

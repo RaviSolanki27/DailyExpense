@@ -43,27 +43,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${poppins.variable} h-full antialiased`} suppressHydrationWarning>
-      <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        {/* Instant theme execution to prevent flicker or stuck darkmode */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var saved = localStorage.getItem('daily_expense_theme');
-                  if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                    document.documentElement.classList.add('dark');
-                  } else {
-                    document.documentElement.classList.remove('dark');
-                  }
-                } catch(e) {}
-              })();
-            `,
-          }}
-        />
-      </head>
       <body className="min-h-full flex flex-col font-sans bg-[var(--background)] text-[var(--foreground)] selection:bg-emerald-500/20">
         {children}
         <script
@@ -71,9 +50,7 @@ export default function RootLayout({
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').catch(function(err) {
-                    console.log('SW registration skipped:', err);
-                  });
+                  navigator.serviceWorker.register('/sw.js').catch(function(err) {});
                 });
               }
             `,

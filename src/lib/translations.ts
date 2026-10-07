@@ -125,3 +125,4 @@ export const getLabels = (showHindi: boolean): LanguageStrings => {
     allTime: "All Time",
   };
 };
+
